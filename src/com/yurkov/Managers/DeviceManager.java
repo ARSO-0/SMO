@@ -78,7 +78,7 @@ public class DeviceManager {
     }
 
     public double getNextEventTime(){
-        return devices.stream().min(Comparator.comparing(Device::getProcessFinishTime)).get().getProcessFinishTime();
+        return devices.stream().max(Comparator.comparing(Device::getProcessFinishTime)).get().getProcessFinishTime();
     }
 
     public ArrayList<Device> getState() {

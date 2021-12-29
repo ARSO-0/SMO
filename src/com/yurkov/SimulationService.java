@@ -67,11 +67,8 @@ public class SimulationService {
             }
         }
 
-        // process remaining requests            1 обработка остатков
-        ///   device 1 not loaded!!              2 переработать Request Satats
         while(deviceManager.isWorking()){
             currentTime = deviceManager.getNextEventTime() + 1;
-
             deviceManager.updateDevices(currentTime);
         }
 
