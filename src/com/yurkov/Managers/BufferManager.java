@@ -23,16 +23,21 @@ public class BufferManager {
     public void enqueueRequest(Request request, double currentTime){
         if(buffer.isAvailable()){  // Д1ОЗ3 - на свободное место
             buffer.addRequest(request);
+            request.setBufferedTime(currentTime);
             report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_BUFFERED, request, currentTime, ownerService.getCurrentSystemState()));
         } else {
+            request.setRefused(true);
             report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_REFUSED, request, currentTime, ownerService.getCurrentSystemState()));  // Д1ОО5 — вновь пришедший запрос
         }
     }
 
-
     public Request fetchRequest(){
         // Д2Б4 – приоритет по номеру источника, по одной заявке(среди заявок одного приоритета имеет смысл выбирать последнюю поступившую
         return buffer.fetchRequest();
+    }
+
+    public boolean isEmpty(){
+        return buffer.isEmpty();
     }
 
     public ArrayList<Request> getState(){

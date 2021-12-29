@@ -6,7 +6,7 @@ import java.util.*;
 
 public class Buffer {
 
-    private ArrayList<Request> array = new ArrayList<>();
+    private final ArrayList<Request> array = new ArrayList<>();
     private final int capacity;
     private int size = 0;
 
@@ -35,7 +35,6 @@ public class Buffer {
         array.remove(request);
         size--;
         return request;
-
     }
 
     public ArrayList<Request> getArray() {

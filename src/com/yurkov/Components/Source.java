@@ -5,7 +5,7 @@ import com.yurkov.Entity.Request;
 public class Source {
 
     public static int requestCount;
-    private static int sourceCount;
+    public static int sourceCount;
     private final int sourceNumber;
     private final double avgGenTime;
     private final double genDispersion;

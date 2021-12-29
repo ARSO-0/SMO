@@ -4,20 +4,18 @@ import java.util.Comparator;
 
 public class Request {
 
-    private final double generationTime;
     private final int sourceNumber;
     private final int requestNumber;
+    private final double generationTime;
+    private double bufferedTime;
+    private double onDeviceTime;
+    private double processedTime;
+    private boolean isRefused;
 
     public Request(double generatedTime, int sourceNumber, int requestNumber) {
         this.generationTime = generatedTime;
         this.sourceNumber = sourceNumber;
         this.requestNumber = requestNumber;
-    }
-
-    public Request(Request request) {
-        this.generationTime = request.getGenerationTime();
-        this.sourceNumber = request.sourceNumber;
-        this.requestNumber = request.requestNumber;
     }
 
     public double getGenerationTime()
@@ -35,6 +33,40 @@ public class Request {
         return requestNumber;
     }
 
+    public double getBufferedTime() {
+        return bufferedTime;
+    }
+
+    public void setBufferedTime(double bufferedTime) {
+        this.bufferedTime = bufferedTime;
+    }
+
+    public double getOnDeviceTime() {
+        return onDeviceTime;
+    }
+
+    public void setOnDeviceTime(double onDeviceTime) {
+        this.onDeviceTime = onDeviceTime;
+    }
+
+    public double getProcessedTime() {
+        return processedTime;
+    }
+
+    public void setProcessedTime(double processedTime) {
+        this.processedTime = processedTime;
+    }
+
+    public boolean isRefused() {
+        return isRefused;
+    }
+
+    public void setRefused(boolean refused) {
+        isRefused = refused;
+        bufferedTime = -1;
+        onDeviceTime = -1;
+        processedTime = -1;
+    }
 
     @Override
     public String toString()

@@ -7,6 +7,7 @@ import com.yurkov.Entity.Request;
 import com.yurkov.SimulationService;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 
 public class DeviceManager {
 
@@ -24,26 +25,39 @@ public class DeviceManager {
     }
 
     public void updateDevices(double currentTime){
-        for(Device d : devices){
-            if(d.isAvailable(currentTime) & d.getCurrentRequest()!=null){
-                report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_PROCESSED, d.getCurrentRequest(), d.getProcessFinishTime(), ownerService.getCurrentSystemState()));
-                d.setCurrentRequest(null);
-            }
-        }
-    }
 
-    public void submitRequest(Request request, double currentTime){
-        if(request == null){
-            return;
-        }
-        for (Device device : devices) {
-            if (device.getCurrentRequest() == null) {
-                device.processRequest(request, currentTime);
-                report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, request, currentTime, ownerService.getCurrentSystemState()));
+        while(isAvailable(currentTime)){
+            devices.stream().filter(d -> d.isAvailable(currentTime) & d.getCurrentRequest()!=null)
+                    .min(Comparator.comparing(Device::getProcessFinishTime)).ifPresent(d -> {
+                        d.getCurrentRequest().setProcessedTime(d.getProcessFinishTime());
+                        report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_PROCESSED, d.getCurrentRequest(), d.getProcessFinishTime(), ownerService.getCurrentSystemState()));
+                        d.reset();
+                        Request nextRequest = ownerService.bufferManager.fetchRequest();
+                        if(nextRequest != null){
+                            double time = d.getProcessFinishTime() + Double.MIN_VALUE;
+                            d.processRequest(nextRequest, time);
+                            nextRequest.setOnDeviceTime(time);
+                            report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, d.getCurrentRequest(), time, ownerService.getCurrentSystemState()));
+                        }
+            });
+            if (ownerService.bufferManager.isEmpty()){
                 break;
             }
         }
     }
+
+    public void submitRequests(Request request, double time){
+        if(request == null){
+            return;
+        }
+        devices.stream().filter(d -> d.getCurrentRequest() == null).min(Comparator.comparing(Device::getProcessFinishTime))
+                .ifPresent(device -> {
+                    device.processRequest(request, time);
+                    request.setOnDeviceTime(time);
+                    report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, device.getCurrentRequest(), time, ownerService.getCurrentSystemState()));
+                });
+    }
+
 
     public boolean isAvailable(double currentTime){
         for(Device d : devices){
@@ -64,15 +78,7 @@ public class DeviceManager {
     }
 
     public double getNextEventTime(){
-        int minIndex = 0;
-        for(Device d : devices){
-            if(d.getCurrentRequest() != null){
-                if(d.getProcessFinishTime() < devices.get(minIndex).getProcessFinishTime()){
-                    minIndex = devices.indexOf(d);
-                }
-            }
-        }
-        return devices.get(minIndex).getProcessFinishTime();
+        return devices.stream().min(Comparator.comparing(Device::getProcessFinishTime)).get().getProcessFinishTime();
     }
 
     public ArrayList<Device> getState() {

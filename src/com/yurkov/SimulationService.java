@@ -17,24 +17,25 @@ public class SimulationService {
     private final Report report;
     private final int totalRequestCount;
     private final ArrayList<Source> sources = new ArrayList<>();
-    private final BufferManager bufferManager;
-    private final DeviceManager deviceManager;
+    public final BufferManager bufferManager;
+    public final DeviceManager deviceManager;
 
     public SimulationService(int totalRequests, int sourceCount,
                              double avgGenTime, double genTimeDispersion,
                              int bufferCapacity,
                              int deviceCount, double lambda){
-        this.report = new Report(sourceCount, bufferCapacity, deviceCount, totalRequests);
+        this.report = new Report(sourceCount, bufferCapacity);
         this.totalRequestCount = totalRequests;
         for (int i = 0; i < sourceCount; i++) {
             sources.add(new Source(avgGenTime, genTimeDispersion));
         }
         this.bufferManager = new BufferManager(bufferCapacity, report, this);
         this.deviceManager = new DeviceManager(deviceCount, lambda, report, this);
+        this.simulate();
     }
 
 
-    public void simulate() {
+    private void simulate() {
 
         ArrayList<Request> temp = new ArrayList<>();
         int j = 0;
@@ -54,42 +55,26 @@ public class SimulationService {
                 return;
             }
             currentTime = request.getGenerationTime();
-            report.addEvent(new Event(Event.EVENT_TYPE.NEW_REQUEST, request, currentTime, getCurrentSystemState()));     // new request event
-            deviceManager.updateDevices(currentTime); // finished events
 
-            Request reqFromBuffer = null;
-            while (deviceManager.isAvailable(currentTime)) {
-                reqFromBuffer = bufferManager.fetchRequest();
-                if (reqFromBuffer == null) { // -> buffer empty
-                    break;
-                }
-                deviceManager.submitRequest(reqFromBuffer, currentTime);  // on device events
-            }
-
-            bufferManager.enqueueRequest(request, currentTime); // refused event / moved to buffer events
-
-            if(deviceManager.isAvailable(currentTime)) { // checking if request can be submitted immediately
-                reqFromBuffer = bufferManager.fetchRequest();
-                if (reqFromBuffer != null) {
-                    deviceManager.submitRequest(reqFromBuffer, currentTime);
-                }
-            }
-        }
-
-        // process remaining requests
-        while(deviceManager.isWorking()){
-            currentTime = deviceManager.getNextEventTime() + 1;
+            // updating devices and buffer state
             deviceManager.updateDevices(currentTime);
 
-            Request reqFromBuffer = null;
-            while (deviceManager.isAvailable(currentTime)) {
-                reqFromBuffer = bufferManager.fetchRequest();
-                if (reqFromBuffer == null) { // -> buffer empty
-                    break;
-                }
-                deviceManager.submitRequest(reqFromBuffer, currentTime);  // on device events
+            report.addEvent(new Event(Event.EVENT_TYPE.NEW_REQUEST, request, currentTime, getCurrentSystemState()));
+
+            bufferManager.enqueueRequest(request, currentTime); // buffered event / refused event
+            if(deviceManager.isAvailable(currentTime) & !bufferManager.isEmpty()){ // check if request can be processed immediately
+                deviceManager.submitRequests(bufferManager.fetchRequest(), currentTime);
             }
         }
+
+        // process remaining requests            1 обработка остатков
+        ///   device 1 not loaded!!              2 переработать Request Satats
+        while(deviceManager.isWorking()){
+            currentTime = deviceManager.getNextEventTime() + 1;
+
+            deviceManager.updateDevices(currentTime);
+        }
+
         report.addDevices(deviceManager.getDevices());
     }
 

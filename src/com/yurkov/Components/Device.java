@@ -2,14 +2,12 @@ package com.yurkov.Components;
 
 import com.yurkov.Entity.Request;
 
-import java.util.ArrayList;
 
 public class Device {
     private final double lambda;
-    private double processFinishTime = 0;
+    private double processFinishTime = -1;
     private Request currentRequest = null;
     private double workingTime = 0;
-    private final ArrayList<Request> processedRequests = new ArrayList<>();
 
     public Device(double lambda){
         this.lambda = lambda;
@@ -26,8 +24,7 @@ public class Device {
         currentRequest = request;
         double timeToProcess = (-1/lambda) * Math.log(Math.random());
         processFinishTime = currentTime + timeToProcess;
-        workingTime+=timeToProcess;
-        processedRequests.add(request);
+        workingTime += timeToProcess;
     }
 
     public boolean isAvailable(double currentTime){
@@ -42,15 +39,12 @@ public class Device {
         return currentRequest;
     }
 
-    public void setCurrentRequest(Request currentRequest) {
-        this.currentRequest = currentRequest;
+    public void reset() {
+        currentRequest = null;
     }
 
     public double getWorkingTime() {
         return workingTime;
     }
 
-    public ArrayList<Request> getProcessedRequests() {
-        return processedRequests;
-    }
 }

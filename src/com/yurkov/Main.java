@@ -32,7 +32,6 @@ public class Main {
         SimulationService simulation = new SimulationService(totalRequests, sourceCount,
                     avgGenTime, genTimeDispersion,
                     bufferCapacity, deviceCount, lambda);
-        simulation.simulate();
         simulation.printStatistics();
         Scanner scanner = new Scanner(System.in);
         System.out.println("See in step mode?(y/n)");

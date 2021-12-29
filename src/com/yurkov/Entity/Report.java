@@ -10,21 +10,16 @@ import java.util.stream.Collectors;
 import static java.lang.Math.pow;
 
 public class Report {
-    public boolean stepMode = true;
     private ArrayList<Event> events = new ArrayList<>();
-    private ArrayList<RequestStats> requestStats = new ArrayList<>();
+    private final ArrayList<Request> allRequests = new ArrayList<>();
     private ArrayList<Device> devices = null;
     private final int sourceCount;
     private final int bufferCapacity;
-    private final int deviceCount;
-    private final int requestCount;
 
 
-    public Report(int sourceCount, int bufferCapacity, int deviceCount, int requestCount) {
+    public Report(int sourceCount, int bufferCapacity) {
         this.sourceCount = sourceCount;
         this.bufferCapacity = bufferCapacity;
-        this.deviceCount = deviceCount;
-        this.requestCount = requestCount;
     }
 
     public void addEvent(Event event){
@@ -50,7 +45,7 @@ public class Report {
                 System.out.format("| Sources  |            | Buffer     | Devices  |            |%n");
                 System.out.format("+----------+------------+------------+----------+------------+%n");
                 String format = "| %-8s | %-10s | %-10s | %-8s | %-10s |";
-                int tableSize = Math.max(Math.max(sourceCount, deviceCount), event.getSystemState().getBufferState().size());
+                int tableSize = Math.max(Math.max(sourceCount, devices.size()), event.getSystemState().getBufferState().size());
                 for (int i = 0; i < tableSize; i++) {
                     StringBuilder data = new StringBuilder();
 
@@ -93,7 +88,7 @@ public class Report {
                         data.append(String.format("| %-10s |", "---"));
                     }
 
-                    if (deviceCount > i) {
+                    if (devices.size() > i) {
                         data.append(String.format(" %-8s ", "Device " + i));
 //
                         if (devices.get(i).getCurrentRequest() != null) {
@@ -120,17 +115,22 @@ public class Report {
     }
 
     public void printStatistics(){
-        makeRequestStats();
 
-        System.out.println("+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+--------------------+--------------------+");
+        for(Event event : events){
+            if(event.getType() == Event.EVENT_TYPE.NEW_REQUEST){
+                allRequests.add(event.getRequest());
+            }
+        }
+
+        System.out.println("+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+----------------------+--------------------+");
         StringBuilder data = new StringBuilder();
         for (int i = 0; i < sourceCount; i++) {
             int requestCount = 0;
             int refusedCount = 0;
-            for(RequestStats request : requestStats){
-                if(request.sourceNumber == i+1){
+            for(Request request : allRequests){
+                if(request.getSourceNumber() == i+1){
                     requestCount++;
-                    if(request.isRefused){
+                    if(request.isRefused()){
                         refusedCount++;
                     }
                 }
@@ -140,10 +140,10 @@ public class Report {
 
             double totalBufferTime = 0;
             double totalDeviceTime = 0;
-            for(RequestStats request : requestStats){
-                if(request.sourceNumber == i+1 & !request.isRefused){
-                    totalBufferTime += request.onDeviceTime - request.bufferedTime;
-                    totalDeviceTime += request.processedTime - request.onDeviceTime;
+            for(Request request : allRequests){
+                if(request.getSourceNumber() == i+1 & !request.isRefused()){
+                    totalBufferTime += request.getOnDeviceTime() - request.getBufferedTime();
+                    totalDeviceTime += request.getProcessedTime() - request.getOnDeviceTime();
                 }
             }
             double avgBufferTime = totalBufferTime/(requestCount-refusedCount);
@@ -152,11 +152,11 @@ public class Report {
 
             double sumBufferDispersion = 0;
             double sumDeviceDispersion = 0;
-            for(RequestStats request : requestStats){
-                if(request.sourceNumber == i+1 & !request.isRefused){
-                    double requestBufferDispersion = pow(((request.onDeviceTime - request.bufferedTime) - avgBufferTime), 2);
+            for(Request request : allRequests){
+                if(request.getSourceNumber() == i+1 & !request.isRefused()){
+                    double requestBufferDispersion = pow(((request.getOnDeviceTime() - request.getBufferedTime()) - avgBufferTime), 2);
                     sumBufferDispersion += requestBufferDispersion;
-                    double requestDeviceDispersion = pow(((request.processedTime - request.onDeviceTime) - avgDeviceTime), 2);
+                    double requestDeviceDispersion = pow(((request.getProcessedTime() - request.getOnDeviceTime()) - avgDeviceTime), 2);
                     sumDeviceDispersion += requestDeviceDispersion;
                 }
             }
@@ -169,11 +169,11 @@ public class Report {
                     "Тбп:", avgBufferTime, "Тобс:", avgDeviceTime, "Тпреб:", avgTotalTime,
                     "Disp Тбп:", bufferTimeDispersion, "Disp Тобс:", deviceTimeDispersion));
         }
-        System.out.println(data + "+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+--------------------+--------------------+\n");
+        System.out.println(data + "+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+----------------------+--------------------+\n");
 
         System.out.println("+------------+------------+");
         StringBuilder deviceData = new StringBuilder();
-        double totalTime = events.get(events.size()-1).eventTime();
+        double totalTime = events.get(events.size()-1).eventTime() - events.get(0).eventTime(); // общее время считаем с момента приход первой заявки до ухода последней
         for(Device d : devices){
             deviceData.append(String.format("| %-6s %-2d | %-4s %.3f |%n", "Device ", devices.indexOf(d), "load", (d.getWorkingTime()/totalTime)));
         }
@@ -182,64 +182,7 @@ public class Report {
 
     }
 
-    private void makeRequestStats() {
-        for (int i = 1; i <= requestCount; i++) {
-            int requestNumber = -1;
-            int sourceNumber = 0;
-            double generationTime = 0;
-            double bufferedTime = 0;
-            double onDeviceTime = 0;
-            double processedTime = 0;
-            boolean isRefused = false;
-            for(Event event : events){
-                if(event.getRequest().getRequestNumber() == i){
-                    if(requestNumber == -1){
-                        requestNumber = event.getRequest().getRequestNumber();
-                        sourceNumber = event.getRequest().getSourceNumber();
-                    }
-                    if(event.getType() == Event.EVENT_TYPE.NEW_REQUEST){
-                        generationTime = event.getRequest().getGenerationTime();
-                    }
-                    if(event.getType() == Event.EVENT_TYPE.REQUEST_BUFFERED){
-                        bufferedTime = event.getEventTime();
-                    }
-                    if(event.getType() == Event.EVENT_TYPE.REQUEST_REFUSED){
-                        isRefused = true;
-                    }
-                    if(event.getType() == Event.EVENT_TYPE.REQUEST_ON_DEVICE){
-                        onDeviceTime = event.getEventTime();
-                    }
-                    if(event.getType() == Event.EVENT_TYPE.REQUEST_PROCESSED){
-                        processedTime = event.getEventTime();
-                    }
-                }
-            }
-            requestStats.add(new RequestStats(requestNumber, sourceNumber, generationTime, bufferedTime, onDeviceTime, processedTime, isRefused));
-        }
-    }
-
     public void addDevices(ArrayList<Device> devices){
         this.devices = devices;
     }
-
-    private static class RequestStats{
-        public int requestNumber;
-        public int sourceNumber;
-        public double generationTime;
-        public double bufferedTime;
-        public double onDeviceTime;
-        public double processedTime;
-        public boolean isRefused;
-
-        public RequestStats(int requestNumber, int sourceNumber, double generationTime, double bufferedTime, double onDeviceTime, double processedTime, boolean isRefused) {
-            this.requestNumber = requestNumber;
-            this.sourceNumber = sourceNumber;
-            this.generationTime = generationTime;
-            this.bufferedTime = bufferedTime;
-            this.onDeviceTime = onDeviceTime;
-            this.processedTime = processedTime;
-            this.isRefused = isRefused;
-        }
-    }
-
 }
