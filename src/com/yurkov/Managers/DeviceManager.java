@@ -24,25 +24,23 @@ public class DeviceManager {
         this.ownerService = ownerService;
     }
 
-    public void updateDevices(double currentTime){
+    public void updateDevices(){
+        Device device = devices.stream().filter(d -> d.getCurrentRequest() != null).min(Comparator.comparing(Device::getProcessFinishTime)).orElse(null);
+        if(device == null){
+            return;
+        }
+        double eventTime = device.getProcessFinishTime();
 
-        while(isAvailable(currentTime)){
-            devices.stream().filter(d -> d.isAvailable(currentTime) & d.getCurrentRequest()!=null)
-                    .min(Comparator.comparing(Device::getProcessFinishTime)).ifPresent(d -> {
-                        d.getCurrentRequest().setProcessedTime(d.getProcessFinishTime());
-                        report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_PROCESSED, d.getCurrentRequest(), d.getProcessFinishTime(), ownerService.getCurrentSystemState()));
-                        d.reset();
-                        Request nextRequest = ownerService.bufferManager.fetchRequest();
-                        if(nextRequest != null){
-                            double time = d.getProcessFinishTime() + Double.MIN_VALUE;
-                            d.processRequest(nextRequest, time);
-                            nextRequest.setOnDeviceTime(time);
-                            report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, d.getCurrentRequest(), time, ownerService.getCurrentSystemState()));
-                        }
-            });
-            if (ownerService.bufferManager.isEmpty()){
-                break;
-            }
+        device.getCurrentRequest().setProcessedTime(eventTime);
+        report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_PROCESSED, device.getCurrentRequest(), eventTime, ownerService.getCurrentSystemState()));
+        device.setCurrentRequest(null);
+
+        if(!ownerService.bufferManager.isEmpty()){
+            Request request = ownerService.bufferManager.fetchRequest();
+            request.setOnDeviceTime(device.getProcessFinishTime() + Double.MIN_VALUE);
+            device.processRequest(request, device.getProcessFinishTime()+Double.MIN_VALUE);
+            report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, request,
+                    request.getOnDeviceTime(), ownerService.getCurrentSystemState()));
         }
     }
 
@@ -50,18 +48,19 @@ public class DeviceManager {
         if(request == null){
             return;
         }
-        devices.stream().filter(d -> d.getCurrentRequest() == null).min(Comparator.comparing(Device::getProcessFinishTime))
-                .ifPresent(device -> {
-                    device.processRequest(request, time);
-                    request.setOnDeviceTime(time);
-                    report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, device.getCurrentRequest(), time, ownerService.getCurrentSystemState()));
-                });
+        Device device = devices.stream().filter(d -> d.getCurrentRequest() == null).findFirst().orElse(null);
+        if(device == null){
+            return;
+        }
+        device.processRequest(request, time);
+        request.setOnDeviceTime(time);
+        report.addEvent(new Event(Event.EVENT_TYPE.REQUEST_ON_DEVICE, device.getCurrentRequest(), time, ownerService.getCurrentSystemState()));
     }
 
 
-    public boolean isAvailable(double currentTime){
+    public boolean isAvailable(){
         for(Device d : devices){
-            if(d.isAvailable(currentTime)){
+            if(d.isAvailable()){
                 return true;
             }
         }
@@ -78,7 +77,11 @@ public class DeviceManager {
     }
 
     public double getNextEventTime(){
-        return devices.stream().max(Comparator.comparing(Device::getProcessFinishTime)).get().getProcessFinishTime();
+        Device device = devices.stream().filter(d -> d.getCurrentRequest() != null).min(Comparator.comparing(Device::getProcessFinishTime)).orElse(null);
+        if(device == null){
+            return Double.MAX_VALUE;
+        }
+        return device.getProcessFinishTime();
     }
 
     public ArrayList<Device> getState() {

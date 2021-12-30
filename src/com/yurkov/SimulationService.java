@@ -19,6 +19,7 @@ public class SimulationService {
     private final ArrayList<Source> sources = new ArrayList<>();
     public final BufferManager bufferManager;
     public final DeviceManager deviceManager;
+    private  LinkedList<Request> allRequests;
 
     public SimulationService(int totalRequests, int sourceCount,
                              double avgGenTime, double genTimeDispersion,
@@ -46,34 +47,34 @@ public class SimulationService {
                 j = 0;
             }
         }
-        LinkedList<Request> allRequests = temp.stream().sorted(new Request.RequestTimeComparator()).collect(Collectors.toCollection(LinkedList::new));
+        allRequests = temp.stream().sorted(new Request.RequestTimeComparator()).collect(Collectors.toCollection(LinkedList::new));
 
         double currentTime = 0;
-        while (!allRequests.isEmpty()) {
-            Request request = allRequests.poll();
-            if (request == null) {
-                return;
-            }
-            currentTime = request.getGenerationTime();
-
-            // updating devices and buffer state
-            deviceManager.updateDevices(currentTime);
-
-            report.addEvent(new Event(Event.EVENT_TYPE.NEW_REQUEST, request, currentTime, getCurrentSystemState()));
-
-            bufferManager.enqueueRequest(request, currentTime); // buffered event / refused event
-            if(deviceManager.isAvailable(currentTime) & !bufferManager.isEmpty()){ // check if request can be processed immediately
-                deviceManager.submitRequests(bufferManager.fetchRequest(), currentTime);
+        while (!allRequests.isEmpty()){
+            if(allRequests.peek().getGenerationTime() < deviceManager.getNextEventTime()){
+                Request newRequest = allRequests.poll();
+                if(newRequest == null){
+                    break;
+                }
+                currentTime = newRequest.getGenerationTime();
+                report.addEvent(new Event(Event.EVENT_TYPE.NEW_REQUEST, newRequest, currentTime, getCurrentSystemState()));  // new request in system
+                bufferManager.enqueueRequest(newRequest, currentTime + Double.MIN_VALUE); // buffered event / refused event
+                if(deviceManager.isAvailable() & !bufferManager.isEmpty()){ // try to process new request immediately
+                    deviceManager.submitRequests(bufferManager.fetchRequest(), currentTime + Double.MIN_VALUE); // onDevice event
+                }
+            } else{
+                deviceManager.updateDevices(); // processedEvent / onDeviceEvent
             }
         }
 
-        while(deviceManager.isWorking()){
-            currentTime = deviceManager.getNextEventTime() + 1;
-            deviceManager.updateDevices(currentTime);
+        while (deviceManager.isWorking()){
+            deviceManager.updateDevices();
         }
+
 
         report.addDevices(deviceManager.getDevices());
     }
+
 
     public SystemState getCurrentSystemState(){
         return new SystemState(bufferManager.getState(), deviceManager.getState());

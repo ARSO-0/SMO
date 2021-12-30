@@ -5,7 +5,7 @@ import com.yurkov.Entity.Request;
 
 public class Device {
     private final double lambda;
-    private double processFinishTime = -1;
+    private double processFinishTime = Double.MAX_VALUE;
     private Request currentRequest = null;
     private double workingTime = 0;
 
@@ -27,8 +27,8 @@ public class Device {
         workingTime += timeToProcess;
     }
 
-    public boolean isAvailable(double currentTime){
-        return currentTime > processFinishTime;
+    public boolean isAvailable(){
+        return currentRequest == null;
     }
 
     public double getProcessFinishTime() {
@@ -39,8 +39,8 @@ public class Device {
         return currentRequest;
     }
 
-    public void reset() {
-        currentRequest = null;
+    public void setCurrentRequest(Request request) {
+        currentRequest = request;
     }
 
     public double getWorkingTime() {
