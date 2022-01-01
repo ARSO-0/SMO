@@ -9,6 +9,7 @@ import com.yurkov.Managers.BufferManager;
 import com.yurkov.Managers.DeviceManager;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.stream.Collectors;
 
@@ -19,7 +20,6 @@ public class SimulationService {
     private final ArrayList<Source> sources = new ArrayList<>();
     public final BufferManager bufferManager;
     public final DeviceManager deviceManager;
-    private  LinkedList<Request> allRequests;
 
     public SimulationService(int totalRequests, int sourceCount,
                              double avgGenTime, double genTimeDispersion,
@@ -47,7 +47,7 @@ public class SimulationService {
                 j = 0;
             }
         }
-        allRequests = temp.stream().sorted(new Request.RequestTimeComparator()).collect(Collectors.toCollection(LinkedList::new));
+        LinkedList<Request> allRequests = temp.stream().sorted(Comparator.comparing(Request::getGenerationTime)).collect(Collectors.toCollection(LinkedList::new));
 
         double currentTime = 0;
         while (!allRequests.isEmpty()){
@@ -67,7 +67,7 @@ public class SimulationService {
             }
         }
 
-        while (deviceManager.isWorking()){
+        while (deviceManager.isWorking()){ // processing remaining requests
             deviceManager.updateDevices();
         }
 

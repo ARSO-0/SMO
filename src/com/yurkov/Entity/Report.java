@@ -44,7 +44,6 @@ public class Report {
                 System.out.format("+----------+------------+------------+----------+------------+%n");
                 System.out.format("| Sources  |            | Buffer     | Devices  |            |%n");
                 System.out.format("+----------+------------+------------+----------+------------+%n");
-                String format = "| %-8s | %-10s | %-10s | %-8s | %-10s |";
                 int tableSize = Math.max(Math.max(sourceCount, devices.size()), event.getSystemState().getBufferState().size());
                 for (int i = 0; i < tableSize; i++) {
                     StringBuilder data = new StringBuilder();
@@ -124,6 +123,7 @@ public class Report {
 
         System.out.println("+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+----------------------+--------------------+");
         StringBuilder data = new StringBuilder();
+        double sumRefuseProb = 0;
         for (int i = 0; i < sourceCount; i++) {
             int requestCount = 0;
             int refusedCount = 0;
@@ -137,6 +137,7 @@ public class Report {
             }
 
             double probOfRefuse = (double)refusedCount/requestCount;
+            sumRefuseProb+=probOfRefuse;
 
             double totalBufferTime = 0;
             double totalDeviceTime = 0;
@@ -169,15 +170,20 @@ public class Report {
                     "Тбп:", avgBufferTime, "Тобс:", avgDeviceTime, "Тпреб:", avgTotalTime,
                     "Disp Тбп:", bufferTimeDispersion, "Disp Тобс:", deviceTimeDispersion));
         }
-        System.out.println(data + "+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+----------------------+--------------------+\n");
+        System.out.println(data + "+-----------+------------------+----------------+---------------------+--------------+---------------+----------------+----------------------+--------------------+");
+        System.out.println("Average refuse prob: " + sumRefuseProb/sourceCount + "\n");
+
 
         System.out.println("+------------+------------+");
         StringBuilder deviceData = new StringBuilder();
         double totalTime = events.get(events.size()-1).eventTime() - events.get(0).eventTime(); // общее время считаем с момента приход первой заявки до ухода последней
+        double totalLoad = 0;
         for(Device d : devices){
             deviceData.append(String.format("| %-6s %-2d | %-4s %.3f |%n", "Device ", devices.indexOf(d), "load", (d.getWorkingTime()/totalTime)));
+            totalLoad += d.getWorkingTime()/totalTime;
         }
-        System.out.println(deviceData + "+------------+------------+\n");
+        System.out.println(deviceData + "+------------+------------+");
+        System.out.println("Average workload: " + totalLoad/devices.size() + "\n");
 
 
     }

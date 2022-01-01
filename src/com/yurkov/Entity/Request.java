@@ -68,13 +68,6 @@ public class Request {
         processedTime = -1;
     }
 
-    @Override
-    public String toString()
-    {
-        return sourceNumber + " " + requestNumber;
-    }
-
-
     public static class RequestComparator implements Comparator<Request> {
 
         @Override
@@ -97,14 +90,6 @@ public class Request {
                 }
             }
             return 0;
-        }
-    }
-
-    public static class RequestTimeComparator implements Comparator<Request> {
-
-        @Override
-        public int compare(Request o1, Request o2) {
-            return Double.compare(o1.getGenerationTime(), o2.getGenerationTime());
         }
     }
 }
